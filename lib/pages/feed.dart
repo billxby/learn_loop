@@ -31,22 +31,72 @@ class _FeedPageState extends ConsumerState<FeedPage> {
   late Timer captionTimer;
   String currentText = "";
 
+  List<String> captions = [];
+  int curCaptionIdx = 0;
+  bool running = false;
 
   @override
   void initState() {
     super.initState();
+    flutterTts.setSpeechRate(0.4);
     scrollController.addListener((event) {
       _handleCallbackEvent(event.direction, event.success, currentIndex: event.pageNo);
     });
     whereWasIFunction();
-    captionTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+    // captionLoop();
+    // return;
+
+    captionTimer = Timer.periodic(const Duration(milliseconds: 1200), (timer) async {
+      if (curCaptionIdx >= captions.length) return;
+      running = true;
       setState(() {
-        Random r = new Random();
-        bool result = r.nextDouble() <= 0.7;
-        currentText = result ? "Hello world" : "Yes sir helo yes";
+        currentText = captions[curCaptionIdx];
+        curCaptionIdx++;
       });
+      await flutterTts.speak(currentText);
+      running = false;
     });
   }
+
+  // Future<void> captionLoop() async {
+  //   while (true) {
+  //     if (curCaptionIdx >= captions.length) { await Future.delayed(Duration(milliseconds: 500)); continue;}
+  //     running = true;
+  //     setState(() {
+  //       currentText = captions[curCaptionIdx];
+  //       curCaptionIdx++;
+  //     });
+  //     flutterTts.speak(currentText);
+  //     await Future.delayed(Duration(milliseconds: (100*currentText.length)));
+  //     // await flutterTts.awaitSpeakCompletion(true);
+  //     running = false;
+  //   }
+  // }
+
+  List<String> createCaptions(String text, int maxLength) {
+    List<String> result = [];
+    List<String> words = text.split(' ');
+    String currentSegment = '';
+    for (String word in words) {
+      if (currentSegment.length + word.length + 1 <= maxLength) {
+        currentSegment += (currentSegment.isEmpty ? '' : ' ') + word;
+      } else {
+        if (currentSegment.isNotEmpty) {
+          result.add(currentSegment);
+        }
+        if (word.length > maxLength) {
+          result.add(word.substring(0, maxLength));
+        } else {
+          currentSegment = word;
+        }
+      }
+    }
+    if (currentSegment.isNotEmpty) {
+      result.add(currentSegment);
+    }
+    return result;
+  }
+
 
   Future<void> whereWasIFunction() async {
     // slight delay otherwise won't load
@@ -56,10 +106,12 @@ class _FeedPageState extends ConsumerState<FeedPage> {
       ref.read(FeedVideoIdsNotifierProvider.notifier).addVideos([
         Video(
             url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+            script: "whopper whopper chicken tender butter ",
             topic: "gang"
         ),
         Video(
             url: "https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4",
+            script: "the quick brown fox jumps over the lazy dog ",
             topic: "gang"
         ),
       ]);
@@ -79,11 +131,18 @@ class _FeedPageState extends ConsumerState<FeedPage> {
         ref.read(FeedVideoIdsNotifierProvider.notifier).addVideos([
           Video(
             url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+            script: "Erm who the fuck asked erm who the fucked fucking asked ",
             topic: "gang"
           ),
           Video(
             url: "https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4",
+            script: "FUCK this shit man I so fucking down this fucking piece of shit oh my fucking days ",
             topic: "gang"
+          ),
+          Video(
+              url: "https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4",
+              script: "Tony bro how much did bro fall off since the talk tuah. Among us sus ",
+              topic: "gang"
           ),
         ]);
       }
@@ -107,13 +166,17 @@ class _FeedPageState extends ConsumerState<FeedPage> {
 
   Future<void> playVideo() async {
     print("hi");
+    final currentVideo = ref.read(FeedVideoIdsNotifierProvider)[ref.read(FeedIndexNotifierProvider)];
     // load and play the new video
+    flutterTts.pause();
     videoController = VideoPlayerController.networkUrl(
-      Uri.parse(ref.read(FeedVideoIdsNotifierProvider)[ref.read(FeedIndexNotifierProvider)].url)
+      Uri.parse(currentVideo.url)
     );
     await videoController.initialize();
     print("Bye");
-    flutterTts.speak("Ok tony but i can do the same thing and it doenst take 30 years to generate");
+    // flutterTts.speak(currentVideo.script * 20);
+    captions = createCaptions(currentVideo.script * 20, 14);
+    curCaptionIdx = 0;
     controllerInitialized = true;
     videoController.play();
     videoController.setLooping(true);
@@ -153,7 +216,18 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                         videoController
                     ),
                     Center(
-                      child: Text(currentText, style: GoogleFonts.modak(fontSize: 40, color: Colors.white))
+                      child: Padding(
+                        padding: EdgeInsets.only(top: 50),
+                        child: Stack(
+                          children: [
+                            Text(currentText, style: GoogleFonts.modak(fontSize: 40, foreground: Paint()
+                              ..style = PaintingStyle.stroke
+                              ..strokeWidth = 5
+                              ..color = Colors.black,)),
+                            Text(currentText, style: GoogleFonts.modak(fontSize: 40, color: Colors.white))
+                          ],
+                        )
+                      )
                     )
                   ],
                 );
@@ -218,7 +292,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                     Icon(Icons.filter_list, color: Colors.white, size: 40),
                     shadowColor: Colors.black,
                   ),
-                  onPressed: () {  },
+                  onPressed: () {},
                 ),
               )
           )

@@ -3,10 +3,12 @@
 class Video{
   Video({
     required this.url,
+    required this.script,
     required this.topic
   });
 
   String url;
+  String script;
   String topic;
   bool? status;
 }

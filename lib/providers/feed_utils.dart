@@ -34,8 +34,8 @@ class FeedTopicsNotifier extends Notifier<List<String>> {
     return [];
   }
 
-  void addTopics(List<String> topics) {
-
+  void setTopics(List<String> topics) {
+    state = topics;
   }
 }
 
