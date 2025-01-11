@@ -90,6 +90,20 @@ class _FeedPageState extends ConsumerState<FeedPage> {
       playVideo();
     }
   }
+  String getNextTopic(int quality) {
+    List<Topic> a = ref.read(FeedTopicsNotifier);
+    Topic currentTopic = a[0]
+    currentTopic.update(quality)
+    int i;
+    for (i = 1; i < min(currentTopic.interval, a.length); i++) {
+      a[i-1] = a[i]
+    }
+    a[i] = currentTopic
+    ref.read(FeedTopicsNotifier.notifier).updateState()
+    return a[0].topicString
+
+  }
+  
 
   Future<void> playVideo() async {
     print("hi");
