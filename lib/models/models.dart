@@ -1,11 +1,12 @@
 
 
 class Video{
-
   Video({
     required this.url,
-  })
+    required this.topic
+  });
 
   String url;
-  String
+  String topic;
+  bool? status;
 }

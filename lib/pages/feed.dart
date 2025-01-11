@@ -1,9 +1,16 @@
+import 'dart:async';
+import 'dart:math';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_icon_shadow/flutter_icon_shadow.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:learn_loop/pages/upload.dart';
 import 'package:tiktoklikescroller/tiktoklikescroller.dart';
 import 'package:video_player/video_player.dart';
 
+import '../models/models.dart';
 import '../providers/feed_utils.dart';
 import 'library.dart';
 
@@ -19,7 +26,11 @@ class FeedPage extends ConsumerStatefulWidget {
 class _FeedPageState extends ConsumerState<FeedPage> {
   final Controller scrollController = Controller();
   late VideoPlayerController videoController;
+  FlutterTts flutterTts = FlutterTts();
   bool controllerInitialized = false;
+  late Timer captionTimer;
+  String currentText = "";
+
 
   @override
   void initState() {
@@ -28,7 +39,13 @@ class _FeedPageState extends ConsumerState<FeedPage> {
       _handleCallbackEvent(event.direction, event.success, currentIndex: event.pageNo);
     });
     whereWasIFunction();
-
+    captionTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+      setState(() {
+        Random r = new Random();
+        bool result = r.nextDouble() <= 0.7;
+        currentText = result ? "Hello world" : "Yes sir helo yes";
+      });
+    });
   }
 
   Future<void> whereWasIFunction() async {
@@ -37,8 +54,14 @@ class _FeedPageState extends ConsumerState<FeedPage> {
     if (ref.read(FeedVideoIdsNotifierProvider).isEmpty) {
       // fetch some values, rn i'm gonna auto add random shit
       ref.read(FeedVideoIdsNotifierProvider.notifier).addVideos([
-        "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-        "https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4",
+        Video(
+            url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+            topic: "gang"
+        ),
+        Video(
+            url: "https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4",
+            topic: "gang"
+        ),
       ]);
     }
     scrollController.jumpToPosition(ref.read(FeedIndexNotifierProvider));
@@ -54,8 +77,14 @@ class _FeedPageState extends ConsumerState<FeedPage> {
       if (currentIndex >= ref.read(FeedVideoIdsNotifierProvider).length || ref.read(FeedVideoIdsNotifierProvider).isEmpty) {
         // fetch some values, rn i'm gonna auto add random shit
         ref.read(FeedVideoIdsNotifierProvider.notifier).addVideos([
-          "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-          "https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4",
+          Video(
+            url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+            topic: "gang"
+          ),
+          Video(
+            url: "https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4",
+            topic: "gang"
+          ),
         ]);
       }
       playVideo();
@@ -66,10 +95,11 @@ class _FeedPageState extends ConsumerState<FeedPage> {
     print("hi");
     // load and play the new video
     videoController = VideoPlayerController.networkUrl(
-      Uri.parse(ref.read(FeedVideoIdsNotifierProvider)[ref.read(FeedIndexNotifierProvider)])
+      Uri.parse(ref.read(FeedVideoIdsNotifierProvider)[ref.read(FeedIndexNotifierProvider)].url)
     );
     await videoController.initialize();
     print("Bye");
+    flutterTts.speak("Ok tony but i can do the same thing and it doenst take 30 years to generate");
     controllerInitialized = true;
     videoController.play();
     videoController.setLooping(true);
@@ -81,9 +111,9 @@ class _FeedPageState extends ConsumerState<FeedPage> {
   @override
   Widget build(BuildContext context) {
     final videoIndex = ref.watch(FeedIndexNotifierProvider);
-    final videoList = ref.watch(FeedVideoIdsNotifierProvider);
-    print(videoIndex);
-    print(videoList);
+    List<Video> videoList = ref.watch(FeedVideoIdsNotifierProvider);
+    final currentVideo = videoList[videoIndex];
+
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -103,37 +133,15 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                 );
               }
               if (index == videoIndex) {
-                return VideoPlayer(
-                    videoController
-                );
-
-                videoController = VideoPlayerController.networkUrl(Uri.parse('https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4'));
-
-                return FutureBuilder<void>(
-                  future: videoController.initialize(),
-                  builder: (BuildContext context, AsyncSnapshot<void> snapshot) {
-                    if (snapshot.connectionState == ConnectionState.done) {
-                      videoController.play();
-                      return Container(
-                          color: (index%2 == 0) ? Colors.red : Colors.blue,
-                          child: Text("HOLA")
-                      );
-                      return VideoPlayer(
-                          videoController
-                      );
-                    } else {
-                      return Center(
-                          child: Text("Hello", style: TextStyle(color: Colors.red))
-                      );
-                    }
-                  },
-
-                );
-
-                videoController.play();
-
-                return VideoPlayer(
-                  videoController
+                return Stack(
+                  children: [
+                    VideoPlayer(
+                        videoController
+                    ),
+                    Center(
+                      child: Text(currentText, style: GoogleFonts.modak(fontSize: 40, color: Colors.white))
+                    )
+                  ],
                 );
               }
               return Container(
@@ -149,17 +157,39 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   IconButton(
-                    icon: Icon(Icons.favorite_border, size: 50, color: Colors.white,),
+                    icon: IconShadow(
+                      Icon(currentVideo.status == true ? Icons.favorite : Icons.favorite_border, size: 50, color: Colors.white, ),
+                      shadowColor: Colors.black,
+                    ),
                     onPressed: () {
-                      scrollController.jumpToPosition(1);
+                      if (currentVideo.status == true) {
+                        videoList[videoIndex].status = null;
+                      } else {
+                        videoList[videoIndex].status = true;
+                      }
+                      setState(() {
+                        ref.read(FeedVideoIdsNotifierProvider.notifier).updateState(videoList);
+                      });
                     },
                   ),
                   const SizedBox(
                     height: 20,
                   ),
                   IconButton(
-                    icon: Icon(Icons.thumb_down_off_alt_sharp, size: 50, color: Colors.white,),
-                    onPressed: () {},
+                    icon: IconShadow(
+                      Icon(currentVideo.status == false ? Icons.thumb_down : Icons.thumb_down_off_alt_sharp, size: 50, color: Colors.white,),
+                      shadowColor: Colors.black,
+                    ),
+                    onPressed: () {
+                      if (currentVideo.status == false) {
+                        videoList[videoIndex].status = null;
+                      } else {
+                        videoList[videoIndex].status = false;
+                      }
+                      setState(() {
+                        ref.read(FeedVideoIdsNotifierProvider.notifier).updateState(videoList);
+                      });
+                    },
                   ),
                 ],
               )
@@ -168,9 +198,12 @@ class _FeedPageState extends ConsumerState<FeedPage> {
           Align(
               alignment: Alignment.topCenter,
               child: Padding(
-                padding: EdgeInsets.only(top: 45),
+                padding: const EdgeInsets.only(top: 45),
                 child: IconButton(
-                  icon: const Icon(Icons.filter_list, color: Colors.white, size: 40),
+                  icon: const IconShadow(
+                    Icon(Icons.filter_list, color: Colors.white, size: 40),
+                    shadowColor: Colors.black,
+                  ),
                   onPressed: () {  },
                 ),
               )
